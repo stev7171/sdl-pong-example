@@ -1,3 +1,6 @@
+# SDL PONG Example
+Available via Emscripten at: https://stev7171.github.io/sdl-pong-example/
+
 # Requirements
 - MinGW/GCC for Windows
 - Emscripten for Windows
