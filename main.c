@@ -1,6 +1,10 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
@@ -18,6 +22,24 @@ typedef struct _ball {
 } Ball;
 
 SDL_Texture* fontTexture;
+
+Player player;
+Player player2;
+	
+Ball ball;
+	
+SDL_Window* window;
+SDL_Renderer* renderer;
+
+TTF_Font* font;
+SDL_Texture* drawScore;
+SDL_Texture* drawScore2;
+
+char cScore[10];
+char cScore2[10];
+
+SDL_Event e;
+bool quit;
 
 // draw text to a texture (you have to blit it)
 SDL_Texture* drawText(char* text, SDL_Color color, TTF_Font* font, SDL_Renderer* renderer) {
@@ -47,34 +69,8 @@ void procBallPos(Ball* ball) {
 	}
 }
 
-int main(int argc, char** argv) {
-	// init vars
-	Player player = {{0, (int)(600/2), 10, 50}, 0, {false, false}};
-	Player player2 = {{800-10, (int)(600/2), 10, 50}, 0, {false, false}};
-	
-	Ball ball = {{(int)(800/2)-10, (int)(600/2)-10, 10, 10}, {true, false, false, false}, 3};
-	
-	SDL_Window* window = NULL;
-	SDL_Renderer* renderer = NULL;
-	
-	SDL_Init(SDL_INIT_EVERYTHING);
-	TTF_Init();
-	window = SDL_CreateWindow("sdl", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 600, SDL_WINDOW_SHOWN);
-	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-	
-	char cScore[10];
-	itoa(player.score, cScore, 10);
-	
-	char cScore2[10];
-	itoa(player2.score, cScore2, 10);
-	
-	TTF_Font* font = TTF_OpenFont("res/font/arial.ttf", 30);
-	SDL_Texture* drawScore = drawText(cScore, (SDL_Color){0xFF, 0xFF, 0xFF}, font, renderer);
-	SDL_Texture* drawScore2 = drawText(cScore2, (SDL_Color){0xFF, 0xFF, 0xFF}, font, renderer);
-
-	SDL_Event e;
-	bool quit = false;
-	while (!quit) {
+static void mainloop() {
+	if (!quit) {
 		
 		// check keys
 		while (SDL_PollEvent(&e)) {
@@ -113,13 +109,13 @@ int main(int argc, char** argv) {
 		}
 		
 		// mov player
-		if (player.move[0])
+		if (player.move[0] && player.rect.y > 50)
 			player.rect.y -= 5;
-		if (player.move[1])
+		if (player.move[1] && player.rect.y + player.rect.h < 600)
 			player.rect.y += 5;
-		if (player2.move[0])
+		if (player2.move[0] && player2.rect.y > 50)
 			player2.rect.y -= 5;
-		if (player2.move[1])
+		if (player2.move[1] && player2.rect.y + player2.rect.h < 600)
 			player2.rect.y += 5;
 		
 		procBallPos(&ball);
@@ -128,19 +124,34 @@ int main(int argc, char** argv) {
 		
 		// check ball collisions
 		if ((ball.rect.x <= player.rect.x+10) && (ball.rect.y >= player.rect.y && ball.rect.y <= player.rect.h + player.rect.y)) {
-			printf("test\n");
-			ball.dir[3] = true;
-			
-			ball.dir[1] = false;
-			ball.dir[2] = false;
-			ball.dir[0] = false;
+			if (ball.dir[0]) {
+				ball.dir[1] = true;
+				
+				ball.dir[3] = false;
+				ball.dir[2] = false;
+				ball.dir[0] = false;
+			} else if (ball.dir[2]) {
+				ball.dir[3] = true;
+				
+				ball.dir[0] = false;
+				ball.dir[2] = false;
+				ball.dir[1] = false;
+			}
 		}
 		if ((ball.rect.x+10 >= player2.rect.x) && (ball.rect.y >= player2.rect.y && ball.rect.y <= player2.rect.h + player2.rect.y)) {
-			ball.dir[2] = true;
-			
-			ball.dir[1] = false;
-			ball.dir[0] = false;
-			ball.dir[3] = false;
+			if (ball.dir[3]) {
+				ball.dir[2] = true;
+				
+				ball.dir[1] = false;
+				ball.dir[0] = false;
+				ball.dir[3] = false;
+			} else if (ball.dir[1]) {
+				ball.dir[0] = true;
+				
+				ball.dir[1] = false;
+				ball.dir[2] = false;
+				ball.dir[3] = false;
+			}
 		}
 		
 		// add points
@@ -170,7 +181,7 @@ int main(int argc, char** argv) {
 		}
 		
 		// collisions (again...)
-		if (ball.rect.y <= 0) {
+		if (ball.rect.y <= 50) {
 			//else {
 				if (ball.dir[1]) {
 					ball.dir[3] = true;
@@ -208,8 +219,8 @@ int main(int argc, char** argv) {
 		}
 		
 		// display things (all self-explanitory)
-		itoa(player.score, cScore, 10);
-		itoa(player2.score, cScore2, 10);
+		sprintf(cScore, "%d", player.score);
+		sprintf(cScore2, "%d", player2.score);
 		
 		drawScore = drawText(cScore, (SDL_Color){0xFF, 0xFF, 0xFF}, font, renderer);
 		drawScore2 = drawText(cScore2, (SDL_Color){0xFF, 0xFF, 0xFF}, font, renderer);
@@ -245,6 +256,38 @@ int main(int argc, char** argv) {
 		if (timeWait > 0)
 			SDL_Delay(timeWait);
 	}
+}
+
+int main(int argc, char** argv) {
+	// init vars
+	player = (Player){{0, (int)(600/2), 10, 50}, 0, {false, false}};
+	player2 = (Player){{800-10, (int)(600/2), 10, 50}, 0, {false, false}};
+	
+	ball = (Ball){{(int)(800/2)-10, (int)(600/2)-10, 10, 10}, {true, false, false, false}, 3};
+	
+	window = NULL;
+	renderer = NULL;
+	
+	SDL_Init(SDL_INIT_EVERYTHING);
+	TTF_Init();
+	window = SDL_CreateWindow("sdl", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 600, SDL_WINDOW_SHOWN);
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+	
+	sprintf(cScore, "%d", player.score);
+	
+	sprintf(cScore2, "%d", player2.score);
+	
+	font = TTF_OpenFont("res/font/arial.ttf", 30);
+	drawScore = drawText(cScore, (SDL_Color){0xFF, 0xFF, 0xFF}, font, renderer);
+	drawScore2 = drawText(cScore2, (SDL_Color){0xFF, 0xFF, 0xFF}, font, renderer);
+	
+	quit = false;
+	
+	#ifdef __EMSCRIPTEN__
+	emscripten_set_main_loop(mainloop, 0, 1);
+	#else
+	while (!quit) { mainloop(); }
+	#endif
 	
 	SDL_DestroyTexture(drawScore);
 	//SDL_DestroyTexture(drawScore2);
@@ -255,5 +298,9 @@ int main(int argc, char** argv) {
 	SDL_Quit();
 	TTF_Quit();
 	
-	return 0;
+	#ifdef __EMSCRIPTEN__
+    emscripten_cancel_main_loop();  /* this should "kill" the app. */
+    #else
+    return 0;
+    #endif
 }

@@ -1,0 +1,1 @@
+emcc -Wall main.c -s USE_SDL=2 -s USE_SDL_TTF=2 --embed-file=res/font/arial.ttf -o index.html

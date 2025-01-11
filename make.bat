@@ -1,1 +1,1 @@
-gcc -Wall main.c -Iinclude -Llib -lmingw32 -lSDL2main -lSDL2 -lSDL2_ttf -lSDL2_image -o sdl.exe
+gcc -Wall main.c -Iinclude -Llib -lmingw32 -lSDL2main -lSDL2 -lSDL2_ttf -o sdl.exe
